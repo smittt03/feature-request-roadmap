@@ -305,10 +305,114 @@ const logout = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || !email.trim()) {
+      return res.status(400).json({
+        message: "Email is required",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    // Return the same response whether or not the account exists.
+    if (!user) {
+      return res.status(200).json({
+        message:
+          "If an account exists with this email, a reset link has been generated",
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = new Date(
+      Date.now() + 15 * 60 * 1000
+    );
+
+    await user.save();
+
+    // Development simulation: use this token to test the reset endpoint.
+    return res.status(200).json({
+      message:
+        "If an account exists with this email, a reset link has been generated",
+      resetToken,
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error.message);
+
+    return res.status(500).json({
+      message: "Something went wrong while requesting a password reset",
+    });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({
+        message: "Reset token and new password are required",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters long",
+      });
+    }
+
+    const user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: "Invalid or expired password reset token",
+      });
+    }
+
+    user.password = await bcrypt.hash(password, 12);
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+
+    await user.save();
+
+    // Revoke existing refresh tokens after a password change.
+    await RefreshToken.deleteMany({
+      user: user._id,
+    });
+
+    return res.status(200).json({
+      message:
+        "Password reset successful. Please log in with your new password.",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error.message);
+
+    return res.status(500).json({
+      message: "Something went wrong while resetting the password",
+    });
+  }
+};
+
+
+
+
 module.exports = {
   signup,
   verifyEmail,
   login,
   refreshToken,
   logout,
+  forgotPassword,
+  resetPassword,
 };

@@ -191,8 +191,108 @@ const toggleVote = async (req, res) => {
   }
 };
 
+const updatePostStatus = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { status } = req.body;
+
+    if (!mongoose.isValidObjectId(postId)) {
+      return res.status(400).json({
+        message: "Invalid feature request ID",
+      });
+    }
+
+    // Only admins can change feature request status.
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Only admins can update feature request status",
+      });
+    }
+
+    const allowedStatuses = [
+      "Under Review",
+      "Planned",
+      "In Progress",
+      "Completed",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status",
+        allowedStatuses,
+      });
+    }
+
+    const post = await Post.findByIdAndUpdate(
+      postId,
+      { status },
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).populate("author", "name");
+
+    if (!post) {
+      return res.status(404).json({
+        message: "Feature request not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Feature request status updated successfully",
+      post,
+    });
+  } catch (error) {
+    console.error("Update post status error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while updating the status",
+    });
+  }
+};
+
+const getRoadmap = async (req, res) => {
+  try {
+    const roadmapStatuses = [
+      "Planned",
+      "In Progress",
+      "Completed",
+    ];
+
+    const posts = await Post.find({
+      status: { $in: roadmapStatuses },
+    })
+      .populate("author", "name")
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const roadmap = {
+      planned: posts.filter((post) => post.status === "Planned"),
+      inProgress: posts.filter((post) => post.status === "In Progress"),
+      completed: posts.filter((post) => post.status === "Completed"),
+    };
+
+    return res.status(200).json({
+      roadmap,
+      counts: {
+        planned: roadmap.planned.length,
+        inProgress: roadmap.inProgress.length,
+        completed: roadmap.completed.length,
+      },
+    });
+  } catch (error) {
+    console.error("Get roadmap error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong while fetching the roadmap",
+    });
+  }
+};
+
 module.exports = {
   createPost,
   getPosts,
   toggleVote,
+  updatePostStatus,
+  getRoadmap,
 };
