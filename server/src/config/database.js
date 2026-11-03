@@ -1,12 +1,17 @@
+
 require("dotenv").config();
 
 const mongoose = require("mongoose");
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(
-      "mongodb://127.0.0.1:27017/feature_request_portal"
-    );
+    const mongoURI = process.env.MONGO_URI;
+
+    if (!mongoURI) {
+      throw new Error("MONGO_URI is not defined in environment variables");
+    }
+
+    await mongoose.connect(mongoURI);
 
     console.log("MongoDB connected successfully ✅");
   } catch (error) {
