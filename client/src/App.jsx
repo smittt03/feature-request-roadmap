@@ -39,7 +39,67 @@ import { Label } from "@/components/ui/label";
 
 import "./App.css";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${import.meta.env.VITE_API_URL}/api`;
+
+// Send cookies with API requests.
+axios.defaults.withCredentials = true;
+
+// Prevent multiple simultaneous refresh requests.
+let refreshPromise = null;
+
+axios.interceptors.response.use(
+  (response) => response,
+
+  async (error) => {
+    const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || "";
+
+    const excludedAuthEndpoints = [
+      "/auth/login",
+      "/auth/signup",
+      "/auth/refresh",
+      "/auth/forgot-password",
+      "/auth/reset-password",
+      "/auth/verify-email",
+      "/auth/logout",
+    ];
+
+    const isExcludedEndpoint = excludedAuthEndpoints.some((endpoint) =>
+      requestUrl.includes(endpoint)
+    );
+
+    // Only refresh when an API request fails with 401.
+    if (
+      error.response?.status !== 401 ||
+      !originalRequest ||
+      originalRequest._retry ||
+      isExcludedEndpoint
+    ) {
+      return Promise.reject(error);
+    }
+
+    originalRequest._retry = true;
+
+    try {
+      // Reuse an ongoing refresh request if one already exists.
+      if (!refreshPromise) {
+        refreshPromise = axios
+          .post(`${API_URL}/auth/refresh`, {})
+          .finally(() => {
+            refreshPromise = null;
+          });
+      }
+
+      await refreshPromise;
+
+      // Retry the original request with the new access cookie.
+      return axios(originalRequest);
+    } catch (refreshError) {
+      return Promise.reject(refreshError);
+    }
+  }
+);
+
 
 const categories = ["All", "UI/UX", "Integrations", "Performance", "General"];
 const requestCategories = categories.filter((item) => item !== "All");

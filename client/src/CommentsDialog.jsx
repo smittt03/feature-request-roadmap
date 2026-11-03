@@ -18,8 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const API_URL = "http://localhost:5000/api";
+const API_URL = `${import.meta.env.VITE_API_URL}/api`;
 const MAX_COMMENT_LENGTH = 5000;
 
 function CommentsDialog({ post, user, onClose, onLogin }) {

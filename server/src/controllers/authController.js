@@ -10,6 +10,14 @@ const {
   generateRefreshToken,
 } = require("../utils/auth");
 
+const isProduction = process.env.NODE_ENV === "production";
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
+};
+
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -163,18 +171,15 @@ const login = async (req, res) => {
     });
 
     res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 15 * 60 * 1000,
-    });
+  ...cookieOptions,
+  maxAge: 15 * 60 * 1000,
+});
+
 
     res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+  ...cookieOptions,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+});
 
     res.status(200).json({
       message: "Login successful",
@@ -246,18 +251,14 @@ const refreshToken = async (req, res) => {
     });
 
     res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 15 * 60 * 1000,
-    });
+  ...cookieOptions,
+  maxAge: 15 * 60 * 1000,
+});
 
-    res.cookie("refreshToken", newRefreshToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+res.cookie("refreshToken", newRefreshToken, {
+  ...cookieOptions,
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+});
 
     res.status(200).json({
       message: "Token refreshed successfully",
@@ -281,17 +282,8 @@ const logout = async (req, res) => {
       });
     }
 
-    res.clearCookie("accessToken", {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-    });
-
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-    });
+    res.clearCookie("accessToken", cookieOptions);
+    res.clearCookie("refreshToken", cookieOptions);
 
     res.status(200).json({
       message: "Logout successful",
